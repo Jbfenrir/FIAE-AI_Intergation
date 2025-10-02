@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 import json
 from datetime import datetime
 import base64
@@ -242,60 +241,69 @@ with tab2:
         # Calcul des recommandations
         df = pd.DataFrame(st.session_state.prestations)
         
-        # Matrice Effort vs Impact
-        fig = go.Figure()
+        # Matrice Effort vs Impact - Version simplifiée sans Plotly
+        st.markdown("#### 📊 Matrice Effort vs Impact")
         
-        for _, row in df.iterrows():
-            effort = row['chronophage']
-            impact = (row['rentabilite'] + row['satisfaction']) / 2
-            
-            # Détermination de la couleur selon le quadrant
-            if effort <= 5 and impact >= 5:
-                color = '#32CD32'  # Quick wins
-                quadrant = "Quick Win"
-            elif effort > 5 and impact >= 5:
-                color = '#071827'  # Projets majeurs
-                quadrant = "Projet Majeur"
-            elif effort <= 5 and impact < 5:
-                color = '#819394'  # Fill-ins
-                quadrant = "À reconsidérer"
+        # Créer une visualisation simple avec metrics et colonnes
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### 🎯 Quick Wins (Effort faible, Impact élevé)")
+            quick_wins = df[(df['chronophage'] <= 5) & ((df['rentabilite'] + df['satisfaction'])/2 >= 5)]
+            if not quick_wins.empty:
+                for _, row in quick_wins.iterrows():
+                    st.success(f"✅ {row['nom']} - Score: {row['score']}")
             else:
-                color = '#374A52'  # Temps perdus
-                quadrant = "À optimiser"
-            
-            fig.add_trace(go.Scatter(
-                x=[effort],
-                y=[impact],
-                mode='markers+text',
-                name=row['nom'],
-                text=[row['nom']],
-                textposition="top center",
-                marker=dict(size=20, color=color),
-                hovertemplate=f"<b>{row['nom']}</b><br>Effort: {effort}<br>Impact: {impact}<br>Quadrant: {quadrant}<extra></extra>"
-            ))
+                st.info("Aucune prestation dans cette catégorie")
         
-        fig.update_layout(
-            title="Matrice Effort vs Impact",
-            xaxis_title="Effort (Aspect chronophage)",
-            yaxis_title="Impact (Rentabilité + Satisfaction)",
-            height=500,
-            showlegend=False,
-            plot_bgcolor='#EAEDE4',
-            xaxis=dict(range=[0, 10], gridcolor='#C3CBC8'),
-            yaxis=dict(range=[0, 10], gridcolor='#C3CBC8'),
-            shapes=[
-                dict(type="line", x0=5, y0=0, x1=5, y1=10, line=dict(color="#819394", width=2, dash="dash")),
-                dict(type="line", x0=0, y0=5, x1=10, y1=5, line=dict(color="#819394", width=2, dash="dash"))
-            ],
-            annotations=[
-                dict(x=2.5, y=7.5, text="Quick Wins", showarrow=False, font=dict(color="#32CD32", size=14, family="Roboto")),
-                dict(x=7.5, y=7.5, text="Projets Majeurs", showarrow=False, font=dict(color="#071827", size=14, family="Roboto")),
-                dict(x=2.5, y=2.5, text="À reconsidérer", showarrow=False, font=dict(color="#819394", size=14, family="Roboto")),
-                dict(x=7.5, y=2.5, text="À optimiser", showarrow=False, font=dict(color="#374A52", size=14, family="Roboto"))
-            ]
-        )
+        with col2:
+            st.markdown("##### 🚀 Projets Majeurs (Effort élevé, Impact élevé)")
+            projets_majeurs = df[(df['chronophage'] > 5) & ((df['rentabilite'] + df['satisfaction'])/2 >= 5)]
+            if not projets_majeurs.empty:
+                for _, row in projets_majeurs.iterrows():
+                    st.info(f"📈 {row['nom']} - Score: {row['score']}")
+            else:
+                st.info("Aucune prestation dans cette catégorie")
         
-        st.plotly_chart(fig, use_container_width=True)
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            st.markdown("##### ⚠️ À reconsidérer (Effort faible, Impact faible)")
+            a_reconsiderer = df[(df['chronophage'] <= 5) & ((df['rentabilite'] + df['satisfaction'])/2 < 5)]
+            if not a_reconsiderer.empty:
+                for _, row in a_reconsiderer.iterrows():
+                    st.warning(f"🔄 {row['nom']} - Score: {row['score']}")
+            else:
+                st.info("Aucune prestation dans cette catégorie")
+        
+        with col4:
+            st.markdown("##### 🔧 À optimiser (Effort élevé, Impact faible)")
+            a_optimiser = df[(df['chronophage'] > 5) & ((df['rentabilite'] + df['satisfaction'])/2 < 5)]
+            if not a_optimiser.empty:
+                for _, row in a_optimiser.iterrows():
+                    st.error(f"⚙️ {row['nom']} - Score: {row['score']}")
+            else:
+                st.info("Aucune prestation dans cette catégorie")
+        
+        # Tableau récapitulatif détaillé
+        st.markdown("#### 📋 Tableau d'analyse détaillé")
+        df_display = df.copy()
+        df_display['Impact'] = (df_display['rentabilite'] + df_display['satisfaction']) / 2
+        df_display = df_display[['nom', 'recurrence', 'chronophage', 'rentabilite', 'satisfaction', 'Impact', 'score']]
+        df_display = df_display.sort_values('score', ascending=False)
+        
+        # Styliser le dataframe
+        def color_score(val):
+            if val >= 7:
+                color = '#32CD32'
+            elif val >= 5:
+                color = '#374A52'
+            else:
+                color = '#819394'
+            return f'color: {color}'
+        
+        styled_df = df_display.style.applymap(color_score, subset=['score'])
+        st.dataframe(styled_df, use_container_width=True)
         
         # Recommandations personnalisées
         st.markdown("### 🤖 Recommandations IA")
